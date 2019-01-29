@@ -1,7 +1,7 @@
 import Phaser from 'phaser'
 import EasyStar from 'easystarjs'
 
-import Client from './client'
+import Client from './client';
 
 
 class InventoryScene extends Phaser.Scene {
@@ -60,8 +60,8 @@ class WorldScene extends Phaser.Scene {
   preload() {
     // load any assets
     this.load.image('other_player', '../assets/other_player.png')
-    this.load.image("tiles", "../assets/tilesets/tf_darkdimension_sheet.png")
-    this.load.tilemapTiledJSON("map", "../assets/tilemaps/mountain.json")
+    this.load.image("tiles", "../assets/tilesets/tileset-1.png")
+    this.load.tilemapTiledJSON("map", "../assets/tilemaps/world-1.json")
     this.load.atlas("atlas", "../assets/atlas/blob_sprite.png", "../assets/atlas/blob_sprite.json")
   }
 
@@ -71,13 +71,13 @@ class WorldScene extends Phaser.Scene {
     this.otherPlayers = this.physics.add.group()
 
     const map = this.make.tilemap({ key: "map" })
-    const tileset = map.addTilesetImage("tf_darkdimension_sheet", "tiles")
+    const tileset = map.addTilesetImage("tileset-1", "tiles")
 
-    const backgroundLayer = map.createStaticLayer("background", tileset, 0, 0)
-    const groundLayer0 = map.createStaticLayer("ground-0", tileset, 0, 0)
-    const groundLayer1 = map.createStaticLayer("ground-1", tileset, 0, 0)
-    const foregroundLayer1 = map.createStaticLayer("fg-1", tileset, 0, 0)
-    const foregroundLayer3 = map.createStaticLayer("fg-3", tileset, 0, 0)
+    const backgroundLayer = map.createStaticLayer("ground", tileset, 0, 0)
+    //const groundLayer0 = map.createStaticLayer("ground-0", tileset, 0, 0)
+    //const groundLayer1 = map.createStaticLayer("ground-1", tileset, 0, 0)
+    //const foregroundLayer1 = map.createStaticLayer("fg-1", tileset, 0, 0)
+    //const foregroundLayer3 = map.createStaticLayer("fg-3", tileset, 0, 0)
 
     this.cameras.main.setBounds(0, 0, map.widthInPixels - 250, map.heightInPixels)
 
@@ -87,7 +87,7 @@ class WorldScene extends Phaser.Scene {
     for (let y = 0; y < map.height; y++) {
       let col = []
       for (let x = 0; x < map.width; x++) {
-        const tile = map.getTileAt(x, y, true, groundLayer0)
+        const tile = map.getTileAt(x, y, true, backgroundLayer)
         if (tile) col.push(tile.index);
       }
       if (col.length > 0) grid.push(col);
@@ -105,30 +105,26 @@ class WorldScene extends Phaser.Scene {
     this.tilemap = map
   }
 
-  addOtherPlayers(playerInfos) {
-    playerInfos.forEach(p => {
-      const newPlayer = this.otherPlayers.create(
-        p.x,
-        p.y,
-        'other_player'
-      )
-      newPlayer.playerId = p.id
-    })
+  addOtherPlayer(playerInfo) {
+    const newPlayer = this.otherPlayers.create(
+      playerInfo.x,
+      playerInfo.y,
+      'other_player'
+    )
+    newPlayer.playerId = playerInfo.id
   }
 
   removePlayers(playerInfos) {
     const otherPlayers = this.otherPlayers.getChildren()
     playerInfos.forEach(playerInfo => {
-      const player = otherPlayers.find(p => p.playerId === playerInfo.id)
+      const player = otherPlayers.find(p => p.playerId == playerInfo.player_id)
       this.otherPlayers.remove(player, true, true)
     })
   }
 
   addPlayer(playerInfo) {
-    console.log(playerInfo.id)
-
     const player = this.physics.add
-      .sprite(playerInfo.x, playerInfo.y, "atlas", "blob.0")
+      .sprite(parseInt(playerInfo.x), parseInt(playerInfo.y), "atlas", "blob.0")
       .setSize(20, 20)
     this.cameras.main.startFollow(player)
 
@@ -141,8 +137,6 @@ class WorldScene extends Phaser.Scene {
       const fromY = Math.floor(player.y/tileSize)
 
       const thisGame = this
-
-      console.log(x, y)
 
       this.finder.findPath(fromX, fromY, toX, toY, function (path) {
         if (!path) {
@@ -159,7 +153,7 @@ class WorldScene extends Phaser.Scene {
             });
           }
           thisGame.tweens.timeline({tweens: tweens})
-          thisGame.client.movePlayer(playerInfo.id, path)
+          thisGame.client.movePlayer(playerInfo.id, path.map(({x, y}) => ({ x: x * tileSize, y: y * tileSize })))
         }
       })
       thisGame.finder.calculate()
@@ -170,8 +164,8 @@ class WorldScene extends Phaser.Scene {
     const player = this.otherPlayers.getChildren().find(p => p.playerId === playerId)
     let tweens = []
     for(let i = 0; i < path.length-1; i++){
-      const ex = path[i+1].x;
-      const ey = path[i+1].y;
+      const ex = Math.floor(path[i+1].x / tileSize);
+      const ey = Math.floor(path[i+1].y / tileSize);
       tweens.push({
         targets: player,
         x: {value: ex*this.tilemap.tileWidth, duration: 200},
@@ -184,7 +178,7 @@ class WorldScene extends Phaser.Scene {
    update(time, delta) { }
 }
 
-const tileSize = 16
+const tileSize = 32
 const config = {
   type: Phaser.AUTO, // Which renderer to use
   width: 1000, // Canvas width in pixels
